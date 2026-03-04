@@ -1,0 +1,27 @@
+""""
+GOAL : creation of my own chess game with IA assistance and possibility to train an IA to play chess against me.
+IN THIS FILE :   
+    1- definition of the board and its methods
+    2- definition of the pieces and their methods
+"""
+
+# DEFINITION OF THE BOARD
+class board :
+    """
+    This class represents the chess board and its methods.
+     - it has an attribute "board" which is a 2D list representing the chess board and its pieces.
+     - it has an attribute "pieces" which is a list of all the pieces on the board.
+     - it has an attibute "positions" which is a dictionary that maps the positions 
+        of the pieces on the board to their corresponding piece objects.
+    - it has a method "create_board" which initializes the board with the pieces in their starting positions.
+     
+    """
+
+    def __init__(self):
+        pass
+
+    def create_board(self):
+    
+    
+
+
