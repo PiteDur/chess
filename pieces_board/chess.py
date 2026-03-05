@@ -47,18 +47,7 @@ class board :
         -----------
         - color: str, the color of the pieces that will be at the bottom of the board (white or black). Default: white.  
         """
-        if self.color == "black": 
-            return np.array(
-                [["R", "N", "B", "Q", "K", "B", "N", "R"],
-                ["P", "P", "P", "P", "P", "P", "P", "P"],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                ["p", "p", "p", "p", "p", "p", "p", "p"],
-                ["r", "n", "b", "q", "k", "b", "n", "r"]])
-        else :
-            return np.array(
+        return np.array(
                 [["r", "n", "b", "q", "k", "b", "n", "r"],
                 ["p", "p", "p", "p", "p", "p", "p", "p"],
                 [" ", " ", " ", " ", " ", " ", " ", " "],
@@ -82,16 +71,13 @@ class board :
         
         """
         # intégrer la vérification de la légalité du coup avant de faire le move
-        if self.color == "black":
-            actual_board = np.flipud(actual_board) # flip the board to display it with black pieces at the bottom
+
 
 
         new_board = np.copy(actual_board)
         piece = move[0]
         new_board[8-int(move[0][2]), ord(move[0][1])-97] = " "
         new_board[8-int(move[1][2]), ord(move[1][1])-97] = piece
-        if self.color == "black":
-            new_board = np.flipud(new_board)
 
         # intégrer la prise en passant
         # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
@@ -116,8 +102,6 @@ class board :
         -----------
         - board: 2D array representing the chess board and its pieces.
         """
-        if self.color == "black":
-            board = np.flipud(board) # flip the board to display it with black pieces at the bottom
         d = {}
         for row, i in zip(board,range(8)):
             for square,j in zip(row, range(97, 105)):
@@ -197,10 +181,55 @@ class rules :
 # pour calculer le score de chaque joueur. Il faut attribuer l'ensemble des cases possibles à partir d'une position. 
 
 class pawn : 
+    """
+    This class represents the pawn piece and its methods.
+
+    Parameters:
+    -----------
+    - piece: str, the piece being represented (e.g. "P" for white pawn, "p" for black pawn).
+    - color: bool, the color of the piece (True for white pieces, False for black pieces).
+    - value: int, the value of the piece (1 for pawn).
+
+    Methods:
+    ---------
+    - possible_moves: returns a list of possible moves for the pawn given its current position and the state of the board.
+    """
     def __init__(self, piece):
         self.piece = piece
         self.color = piece.isupper()
         self.value = 1
+
+    def possible_moves(self, position, board):
+        possible_moves = []
+        # white pieces move up the board
+        if self.color: 
+            if position[0] == 6: # if the pawn is on its starting position, it can move 2 squares forward
+                if board[position[0]-1][position[1]] == " ": # check if the square in front of the pawn is empty
+                    possible_moves.append((position[0]-1, position[1]))
+                    if board[position[0]-2][position[1]] == " ": # check if the square 2 squares in front of the pawn is empty
+                        possible_moves.append((position[0]-2, position[1]))
+            else: # if the pawn is not on its starting position, it can only move 1 square forward
+                if board[position[0]-1][position[1]] == " ": # check if the square in front of the pawn is empty
+                    possible_moves.append((position[0]-1, position[1]))
+            # check for captures
+            for i in [-1, 1]: # check the squares diagonally in front of the pawn
+                if 0 <= position[1]+i < 8: # check if the square is on the board
+                    if board[position[0]-1][position[1]+i] != " " and board[position[0]-1][position[1]+i].isupper() != self.color: # check if there is an opponent piece to capture
+                        possible_moves.append((position[0]-1, position[1]+i))
+        
+        # black pieces move down the board
+        else: 
+            if position[0] == 1: # if the pawn is on its starting position, it can move 2 squares forward
+                if board[position[0]+1][position[1]] == " ": # check if the square in front of the pawn is empty
+                    possible_moves.append((position[0]+1, position[1]))
+                    if board[position[0]+2][position[1]] == " ": # check if the square 2 squares in front of the pawn is empty
+                        possible_moves.append((position[0]+2, position[1]))
+            else: # if the pawn is not on its starting position, it can only move 1 square forward
+                if board[position[0]+1][position[1]] == " ": # check if the square in front of the pawn is empty
+                    possible_moves.append((position[0]+1, position[1]))
+
+        return possible_moves
+
 
 class rook :
     """
@@ -225,19 +254,21 @@ class rook :
 
     def possible_moves(self, position, board):
         possible_moves = []
+        position0 = ord(position[0]) - 97
+        position1 = 8 - int(position[1]) - 1
         # check the squares in the same row and column as the rook
         for i in range(8):
-            if board[position[0]][i] == " ": # empty square
+            if board[position0][i] == " ": # empty square
                 possible_moves.append((position[0], i)) 
-            elif board[position[0]][i].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
+            elif board[position0][i].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
                 possible_moves.append((position[0], i))
                 break
             else: # if there is a piece of the same color, we can't go further
                 break
         for i in range(8):
-            if board[i][position[1]] == " ": # empty square
+            if board[i][position1] == " ": # empty square
                 possible_moves.append((i, position[1]))
-            elif board[i][position[1]].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
+            elif board[i][position1].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
                 possible_moves.append((i, position[1]))
                 break
             else: # if there is a piece of the same color, we can't go further
@@ -266,22 +297,95 @@ class knight :
         self.piece = piece
         self.color = piece.isupper()
         self.value = 3
-
+    
+    def possible_moves(self, position, board):
+        possible_moves = []
+        # check the squares in the same row and column as the knight
+        for i in range(-2, 3):
+            for j in range(-2, 3):
+                if abs(i) + abs(j) == 3: # the knight moves in an L shape
+                    new_position = (position[0] + i, position[1] + j)
+                    if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8: # check if the new position is on the board
+                        if board[new_position[0]][new_position[1]] == " ": # empty square
+                            possible_moves.append(new_position)
+                        elif board[new_position[0]][new_position[1]].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
+                            possible_moves.append(new_position)
+        return possible_moves
     
 
 class bishop :
+    """
+    This class represents the bishop piece and its methods.
+
+    Parameters:
+    -----------
+    - piece: str, the piece being represented (e.g. "B" for white bishop, "b" for black bishop).
+    - color: bool, the color of the piece (True for white pieces, False for black pieces).
+    - value: int, the value of the piece (3 for bishop).
+
+    Methods:
+    ---------
+    - possible_moves: returns a list of possible moves for the bishop given its current position and the state of the board.
+    """
+
     def __init__(self, piece):
         self.piece = piece
         self.color = piece.isupper()
         self.value = 3
 
+
+    def possible_moves(self, position, board):
+        possible_moves = []
+        # check the squares in the same diagonal as the bishop
+        for i in range(-7, 8):
+            new_position = (position[0] + i, position[1] + i)
+            if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8: # check if the new position is on the board
+                if board[new_position[0]][new_position[1]] == " ": # empty square
+                    possible_moves.append(new_position)
+                elif board[new_position[0]][new_position[1]].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
+                    possible_moves.append(new_position)
+                    break
+                else: # if there is a piece of the same color, we can't go further
+                    break
+
+
+
+
 class queen :
+    """
+    This class represents the queen piece and its methods.
+
+    Parameters:
+    -----------
+    - piece: str, the piece being represented (e.g. "Q" for white queen, "q" for black queen).
+    - color: bool, the color of the piece (True for white pieces, False for black pieces).
+    - value: int, the value of the piece (9 for queen).
+
+    Methods:
+    ---------
+    - possible_moves: returns a list of possible moves for the queen given its current position and the state of the board.
+    """
+
     def __init__(self, piece):
         self.piece = piece
         self.color = piece.isupper()
         self.value = 9
 
 class king :
+    """
+    This class represents the king piece and its methods.
+
+    Parameters:
+    -----------
+    - piece: str, the piece being represented (e.g. "K" for white king, "k" for black king).
+    - color: bool, the color of the piece (True for white pieces, False for black pieces).
+    - value: int, the value of the piece (0 for king).
+
+    Methods:
+    ---------
+    - possible_moves: returns a list of possible moves for the king given its current position and the state of the board.
+    """
+
     def __init__(self, piece):
         self.piece = piece
         self.color = piece.isupper()
