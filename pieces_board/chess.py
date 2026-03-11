@@ -24,6 +24,7 @@ def _algebraic_to_index(pos: str) -> tuple:
     return (row, col)
 
 
+
 def _index_to_algebraic(row: int, col: int) -> str:
     """Convert board indices back to algebraic notation.
 
@@ -97,6 +98,7 @@ class board :
         # intégrer la prise en passant
         # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
         # intégrer la vérification du mate => if mate, game over, return the winner and the final board
+        # intégrer booléen pour savoir si le roi a déjà bougé ou pas : roque et échec au roi interdit
 
 
 
@@ -112,6 +114,9 @@ class board :
 
         # update the last move: used in the taken in passing rule
         self.last_move.append(move)    
+
+
+
         return new_board
         
 
@@ -190,6 +195,10 @@ class rules :
     - check_move: is the move in the list of possible moves for the piece? (in which case the move is legal)
     - check_checked: is the king in check ? (in which case the move is not legal)
     - check_checking: is the move putting the king in check ? (in which case the move is not legal)
+    - check pat: is the move putting the opponent in pat ? 
+        * no piece can move and the king is not in check => pat => game over => draw
+        * repetition of the same position 3 times => pat => game over => draw
+        * 50 moves without any capture or pawn move => pat => game over => draw
     - check_mate: is the move putting the opponent in checkmate ? (in which case the game is over and the player wins)
     - check_all: check all the previous rules and return True if the move is legal, False otherwise with a message 
         explaining why the move is not legal.
@@ -207,14 +216,31 @@ class rules :
 
 
     def check_move(self):
+        checked = 0
+        index_sq_departure = _algebraic_to_index(self.sq_departure)
+        index_sq_arrival = _algebraic_to_index(self.sq_arrival)
+        
         # is the departure square occupied by the piece that is being moved ?
+        if self.board[index_sq_departure] == piece :
+            checked += 1
 
-        # is the arrival square in the liste of possible moves ?
+        # if pawn, check last move => if last move was a double squares move of 
+            # the opponent's pawn and the arrival square is next to the departure
+            # square, then the move is legal (en passant)
+            # add a new case '
+        if piece.lower() == "p" :
+            if self.last_move is not None and self.last_move[0][0].lower() == "p" :
+                if abs(_algebraic_to_index(self.last_move[0][1:3])[0] - _algebraic_to_index(self.last_move[1][1:3])[0]) == 2 :
+                    
 
-        # 
+        # is the arrival square in the list of possible moves ?
+        
+
+        
 
 
-        return True
+        if checked == 3 : 
+            return True
 
 
 
