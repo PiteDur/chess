@@ -94,6 +94,12 @@ class board :
         """
         # intégrer la vérification de la légalité du coup avant de faire le move
 
+        # intégrer la prise en passant
+        # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
+        # intégrer la vérification du mate => if mate, game over, return the winner and the final board
+
+
+
 
 
         new_board = np.copy(actual_board)
@@ -101,13 +107,11 @@ class board :
         new_board[8-int(move[0][2]), ord(move[0][1])-97] = " "
         new_board[8-int(move[1][2]), ord(move[1][1])-97] = piece
 
-        # intégrer la prise en passant
-        # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
-        # intégrer la vérification du mate => if mate, game over, return the winner and the final board
+
 
 
         # update the last move: used in the taken in passing rule
-        self.last_move = move    
+        self.last_move.append(move)    
         return new_board
         
 
@@ -154,6 +158,14 @@ class board :
 
 
     def calculate_scores(self, board):
+        """
+        Returns a tuple with the scores of each player (white, black). Each score corresponds to the sum of the values of the pieces that the player has on the board. 
+        Values are given in each piece class
+
+        Parameters:
+        -----------
+        - board: 2D array representing the chess board and its pieces.
+        """
         scores = (0, 0)
         
         return scores
@@ -175,7 +187,7 @@ class rules :
     
     Methods:
     --------
-    - check_move: is the move in the list of possible moves for the piece ? (in which case the move is legal)
+    - check_move: is the move in the list of possible moves for the piece? (in which case the move is legal)
     - check_checked: is the king in check ? (in which case the move is not legal)
     - check_checking: is the move putting the king in check ? (in which case the move is not legal)
     - check_mate: is the move putting the opponent in checkmate ? (in which case the game is over and the player wins)
@@ -193,6 +205,16 @@ class rules :
         self.piece = move[0]
         self.color = move[0].isupper() # True for white pieces, False for black pieces
 
+
+    def check_move(self):
+        # is the departure square occupied by the piece that is being moved ?
+
+        # is the arrival square in the liste of possible moves ?
+
+        # 
+
+
+        return True
 
 
 
