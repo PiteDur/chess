@@ -10,6 +10,28 @@ IN THIS FILE :
 
 import numpy as np
 
+
+# helper functions for coordinate conversion
+
+def _algebraic_to_index(pos: str) -> tuple:
+    """Convert a square like "e4" into board indices (row, col).
+
+    The board array uses row 0 for the 8th rank and row 7 for the 1st rank.
+    Columns go from 0 ('a') to 7 ('h').
+    """
+    col = ord(pos[0].lower()) - ord("a")
+    row = 8 - int(pos[1])
+    return (row, col)
+
+
+def _index_to_algebraic(row: int, col: int) -> str:
+    """Convert board indices back to algebraic notation.
+
+    Reverse of :func:`_algebraic_to_index`.
+    """
+    return chr(col + ord("a")) + str(8 - row)
+
+
 # DEFINITION OF THE BOARD
 class board :
     """
@@ -34,7 +56,7 @@ class board :
 
     def __init__(self, color = "white",last_move = None):
         self.color = color
-        self.last_move = last_move
+        self.last_move = []
 
     def create_board(self):
         """
@@ -200,35 +222,39 @@ class pawn :
         self.value = 1
 
     def possible_moves(self, position, board):
-        possible_moves = []
-        # white pieces move up the board
-        if self.color: 
-            if position[0] == 6: # if the pawn is on its starting position, it can move 2 squares forward
-                if board[position[0]-1][position[1]] == " ": # check if the square in front of the pawn is empty
-                    possible_moves.append((position[0]-1, position[1]))
-                    if board[position[0]-2][position[1]] == " ": # check if the square 2 squares in front of the pawn is empty
-                        possible_moves.append((position[0]-2, position[1]))
-            else: # if the pawn is not on its starting position, it can only move 1 square forward
-                if board[position[0]-1][position[1]] == " ": # check if the square in front of the pawn is empty
-                    possible_moves.append((position[0]-1, position[1]))
-            # check for captures
-            for i in [-1, 1]: # check the squares diagonally in front of the pawn
-                if 0 <= position[1]+i < 8: # check if the square is on the board
-                    if board[position[0]-1][position[1]+i] != " " and board[position[0]-1][position[1]+i].isupper() != self.color: # check if there is an opponent piece to capture
-                        possible_moves.append((position[0]-1, position[1]+i))
-        
-        # black pieces move down the board
-        else: 
-            if position[0] == 1: # if the pawn is on its starting position, it can move 2 squares forward
-                if board[position[0]+1][position[1]] == " ": # check if the square in front of the pawn is empty
-                    possible_moves.append((position[0]+1, position[1]))
-                    if board[position[0]+2][position[1]] == " ": # check if the square 2 squares in front of the pawn is empty
-                        possible_moves.append((position[0]+2, position[1]))
-            else: # if the pawn is not on its starting position, it can only move 1 square forward
-                if board[position[0]+1][position[1]] == " ": # check if the square in front of the pawn is empty
-                    possible_moves.append((position[0]+1, position[1]))
+        """Return all legal target squares in algebraic notation (e.g. "e4").
 
-        return possible_moves
+        The argument ``position`` must be an algebraic coordinate of the pawn's
+        current square. The board is the 8x8 numpy array used throughout the
+        module. The returned list contains only destination squares; move legality
+        (checks, en passant, promotion choice, etc.) is handled elsewhere.
+        """
+        moves = []
+        row, col = _algebraic_to_index(position)
+        direction = -1 if self.color else 1
+        start = 6 if self.color else 1
+
+        # one step forward
+        nr = row + direction
+        if 0 <= nr < 8 and board[nr][col] == " ":
+            moves.append((nr, col))
+            # two squares from starting rank
+            if row == start:
+                nnr = row + 2 * direction
+                if board[nnr][col] == " ":
+                    moves.append((nnr, col))
+
+        # captures
+        for dc in (-1, 1):
+            nc = col + dc
+            nr = row + direction
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                target = board[nr][nc]
+                if target != " " and target.isupper() != self.color:
+                    moves.append((nr, nc))
+
+        # convert back to algebraic coordinates
+        return [_index_to_algebraic(r, c) for r, c in moves]
 
 
 class rook :
@@ -253,27 +279,30 @@ class rook :
         self.value = 5
 
     def possible_moves(self, position, board):
-        possible_moves = []
-        position0 = ord(position[0]) - 97
-        position1 = 8 - int(position[1]) - 1
-        # check the squares in the same row and column as the rook
-        for i in range(8):
-            if board[position0][i] == " ": # empty square
-                possible_moves.append((position[0], i)) 
-            elif board[position0][i].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
-                possible_moves.append((position[0], i))
-                break
-            else: # if there is a piece of the same color, we can't go further
-                break
-        for i in range(8):
-            if board[i][position1] == " ": # empty square
-                possible_moves.append((i, position[1]))
-            elif board[i][position1].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
-                possible_moves.append((i, position[1]))
-                break
-            else: # if there is a piece of the same color, we can't go further
-                break
-        return possible_moves
+        """Rook moves along ranks and files.
+
+        ``position`` is a square string and the returned list contains legal
+        destination squares as strings. Captures are allowed but the rook will
+        not jump over pieces.
+        """
+        moves = []
+        row, col = _algebraic_to_index(position)
+
+        # four directions
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nr, nc = row + dr, col + dc
+            while 0 <= nr < 8 and 0 <= nc < 8:
+                target = board[nr][nc]
+                if target == " ":
+                    moves.append((nr, nc))
+                else:
+                    if target.isupper() != self.color:
+                        moves.append((nr, nc))
+                    break
+                nr += dr
+                nc += dc
+
+        return [_index_to_algebraic(r, c) for r, c in moves]
 
 
 
@@ -299,18 +328,17 @@ class knight :
         self.value = 3
     
     def possible_moves(self, position, board):
-        possible_moves = []
-        # check the squares in the same row and column as the knight
-        for i in range(-2, 3):
-            for j in range(-2, 3):
-                if abs(i) + abs(j) == 3: # the knight moves in an L shape
-                    new_position = (position[0] + i, position[1] + j)
-                    if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8: # check if the new position is on the board
-                        if board[new_position[0]][new_position[1]] == " ": # empty square
-                            possible_moves.append(new_position)
-                        elif board[new_position[0]][new_position[1]].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
-                            possible_moves.append(new_position)
-        return possible_moves
+        """Knight jumps in an L-shape; ignores intermediate squares."""
+        moves = []
+        row, col = _algebraic_to_index(position)
+        deltas = [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]
+        for dr, dc in deltas:
+            nr, nc = row + dr, col + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                target = board[nr][nc]
+                if target == " " or target.isupper() != self.color:
+                    moves.append((nr, nc))
+        return [_index_to_algebraic(r, c) for r, c in moves]
     
 
 class bishop :
@@ -335,18 +363,22 @@ class bishop :
 
 
     def possible_moves(self, position, board):
-        possible_moves = []
-        # check the squares in the same diagonal as the bishop
-        for i in range(-7, 8):
-            new_position = (position[0] + i, position[1] + i)
-            if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8: # check if the new position is on the board
-                if board[new_position[0]][new_position[1]] == " ": # empty square
-                    possible_moves.append(new_position)
-                elif board[new_position[0]][new_position[1]].isupper() != self.color: # if there is an opponent piece, we can capture it but we can't go further
-                    possible_moves.append(new_position)
+        """Bishop moves diagonally."""
+        moves = []
+        row, col = _algebraic_to_index(position)
+        for dr, dc in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+            nr, nc = row + dr, col + dc
+            while 0 <= nr < 8 and 0 <= nc < 8:
+                target = board[nr][nc]
+                if target == " ":
+                    moves.append((nr, nc))
+                else:
+                    if target.isupper() != self.color:
+                        moves.append((nr, nc))
                     break
-                else: # if there is a piece of the same color, we can't go further
-                    break
+                nr += dr
+                nc += dc
+        return [_index_to_algebraic(r, c) for r, c in moves]
 
 
 
@@ -371,6 +403,31 @@ class queen :
         self.color = piece.isupper()
         self.value = 9
 
+
+    def possible_moves(self, position, board):
+        """Queen moves along ranks, files, and diagonals."""
+        moves = []
+        row, col = _algebraic_to_index(position)
+
+        # eight directions
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            nr, nc = row + dr, col + dc
+            while 0 <= nr < 8 and 0 <= nc < 8:
+                target = board[nr][nc]
+                if target == " ":
+                    moves.append((nr, nc))
+                else:
+                    if target.isupper() != self.color:
+                        moves.append((nr, nc))
+                    break
+                nr += dr
+                nc += dc
+
+        return [_index_to_algebraic(r, c) for r, c in moves]
+    
+
+
+
 class king :
     """
     This class represents the king piece and its methods.
@@ -390,6 +447,21 @@ class king :
         self.piece = piece
         self.color = piece.isupper()
         self.value = 0
+
+    def possible_moves(self, position, board):
+        """King moves one square in any direction (castling not implemented)."""
+        moves = []
+        row, col = _algebraic_to_index(position)
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = row + dr, col + dc
+                if 0 <= nr < 8 and 0 <= nc < 8:
+                    target = board[nr][nc]
+                    if target == " " or target.isupper() != self.color:
+                        moves.append((nr, nc))
+        return [_index_to_algebraic(r, c) for r, c in moves]
 
 
 
