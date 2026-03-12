@@ -93,13 +93,16 @@ class board :
             (e.g. "Qe2" for white Queen on the square e2).
         
         """
-        # intégrer la vérification de la légalité du coup avant de faire le move
+        # intégrer la vérification de la légalité du coup avant de faire le move => utiliser la classe rules
 
-        # intégrer la prise en passant
-        # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
-        # intégrer la vérification du mate => if mate, game over, return the winner and the final board
-        # intégrer booléen pour savoir si le roi a déjà bougé ou pas : roque et échec au roi interdit
+            # intégrer la prise en passant
+            # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
+            # intégrer la vérification du mate => if mate, game over, return the winner and the final board
+            # intégrer la vérification du pat => if pat, game over, return draw and the final board 
 
+        # vérifier si on est sur un roque
+
+        # vérifier si on est sur une prise en passant
 
 
 
@@ -224,13 +227,7 @@ class rules :
         if self.board[index_sq_departure] == piece :
             checked += 1
 
-        # if pawn, check last move => if last move was a double squares move of 
-            # the opponent's pawn and the arrival square is next to the departure
-            # square, then the move is legal (en passant)
-            # add a new case '
-        if piece.lower() == "p" :
-            if self.last_move is not None and self.last_move[0][0].lower() == "p" :
-                if abs(_algebraic_to_index(self.last_move[0][1:3])[0] - _algebraic_to_index(self.last_move[1][1:3])[0]) == 2 :
+     
                     
 
         # is the arrival square in the list of possible moves ?
@@ -269,7 +266,7 @@ class pawn :
         self.color = piece.isupper()
         self.value = 1
 
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """Return all legal target squares in algebraic notation (e.g. "e4").
 
         The argument ``position`` must be an algebraic coordinate of the pawn's
@@ -301,6 +298,13 @@ class pawn :
                 if target != " " and target.isupper() != self.color:
                     moves.append((nr, nc))
 
+
+        if last_move is not None and last_move[-1][0][0].lower() == "p" : # if the last move was a pawn move
+            if abs(_algebraic_to_index(last_move[-1][0][1::])[0] - _algebraic_to_index(last_move[-1][1][1::])[0]) == 2 : # if the last move was a double squares move
+                    # if the arrival square of the last move is next to the departure square of the current move
+                if _algebraic_to_index(last_move[-1][1][1::])[0] == row and abs(_algebraic_to_index(last_move[-1][1][1::])[1] - col) == 1 :
+                    moves.append((row, col + dc)) # en passant capture  
+
         # convert back to algebraic coordinates
         return [_index_to_algebraic(r, c) for r, c in moves]
 
@@ -326,7 +330,7 @@ class rook :
         self.color = piece.isupper()
         self.value = 5
 
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """Rook moves along ranks and files.
 
         ``position`` is a square string and the returned list contains legal
@@ -375,7 +379,7 @@ class knight :
         self.color = piece.isupper()
         self.value = 3
     
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """Knight jumps in an L-shape; ignores intermediate squares."""
         moves = []
         row, col = _algebraic_to_index(position)
@@ -410,7 +414,7 @@ class bishop :
         self.value = 3
 
 
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """Bishop moves diagonally."""
         moves = []
         row, col = _algebraic_to_index(position)
@@ -452,7 +456,7 @@ class queen :
         self.value = 9
 
 
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """Queen moves along ranks, files, and diagonals."""
         moves = []
         row, col = _algebraic_to_index(position)
@@ -496,7 +500,7 @@ class king :
         self.color = piece.isupper()
         self.value = 0
 
-    def possible_moves(self, position, board):
+    def possible_moves(self, position, board, last_move):
         """King moves one square in any direction (castling not implemented)."""
         moves = []
         row, col = _algebraic_to_index(position)
@@ -509,6 +513,13 @@ class king :
                     target = board[nr][nc]
                     if target == " " or target.isupper() != self.color:
                         moves.append((nr, nc))
+
+        # castling:
+            # si il n'y a jamais eu de mouvement du roi ni de la tour du côté du roque
+            # si il n'y a pas d'échecs sur les cases traversées par le roi
+            # si il n'y a pas de pièces entre le roi et la tour du côté du roque
+            # => ajouter les cases de roque dans les moves possibles 
+
         return [_index_to_algebraic(r, c) for r, c in moves]
 
 
