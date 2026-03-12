@@ -8,7 +8,7 @@ The game is meant to be used in developping a small algorithm capable of playing
 
 ## Access to the code
 
-You may use an environment on your own computer (see `INSTALL.txt` for more information about conda environment), after having cloned this repository with :
+You may use an environment on your own computer (see `myenv` file), after having cloned this repository with :
 
 ``````
 git clone https://github.com/PiteDur/chess
@@ -21,10 +21,16 @@ git clone https://github.com/PiteDur/chess
 The unique notebook of this repository makes internal references to synthetic data and functions contained in the following structure :
 
 ``````
-banksdefault/
-├── data
-│   └── syntheticdata.txt
-├── docs
+chess/
+├── myenv
+│   └── Lib/site-packages
+│   └── Scripts
+│   pyenv.cfg
+├── pieces_board
+│   └── chess.py
+│   └── test_classes.ipynb
+│ README.md
+│ LICENSE.md
 
 ``````
 
