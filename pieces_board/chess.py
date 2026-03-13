@@ -53,11 +53,20 @@ class board :
     - move_piece: returns a new board with the piece moved from its current position to the new position
     - calculate_scores: calculates the scores for each player based on the pieces they have on the board 
 
+    
+
+    Improving ideas :
+    -----------------
+    - method to translates moves in std notation (and vice versa) 
+
     """
 
-    def __init__(self, color = "white",last_move = None):
+    def __init__(self, color = "white",last_move = None,w_castling=True, b_castling=True):
         self.color = color
         self.last_move = []
+        self.w_castling = w_castling
+        self.b_castling = b_castling
+
 
     def create_board(self):
         """
@@ -68,7 +77,13 @@ class board :
 
         Parameters: 
         -----------
-        - color: str, the color of the pieces that will be at the bottom of the board (white or black). Default: white.  
+        - color: str, the color of the pieces that will be at the bottom of the board (white or black). Default: white.
+
+        Improving idea
+        --------------
+        - generate an empty board
+        - function to generate an intial board
+        - function put pieces on an ampty board  
         """
         return np.array(
                 [["r", "n", "b", "q", "k", "b", "n", "r"],
@@ -106,14 +121,18 @@ class board :
 
 
 
+        # updating castling status for both players
+        if move[0][0] == "K":
+            self.w_castling = False
+        elif move[0][0] == "k":
+            self.b_castling = False
 
+
+        # adapting the board to the last move
         new_board = np.copy(actual_board)
         piece = move[0]
         new_board[8-int(move[0][2]), ord(move[0][1])-97] = " "
         new_board[8-int(move[1][2]), ord(move[1][1])-97] = piece
-
-
-
 
         # update the last move: used in the taken in passing rule
         self.last_move.append(move)    
@@ -514,11 +533,12 @@ class king :
                     if target == " " or target.isupper() != self.color:
                         moves.append((nr, nc))
 
-        # castling:
-            # si il n'y a jamais eu de mouvement du roi ni de la tour du côté du roque
-            # si il n'y a pas d'échecs sur les cases traversées par le roi
-            # si il n'y a pas de pièces entre le roi et la tour du côté du roque
-            # => ajouter les cases de roque dans les moves possibles 
+        # castling move :
+            # check for castling status according to the board object (self attributes)
+            # if True => check for pieces btw the k and the rook => if not, True
+            # check if the king or squares of the castling are in check => if not, True
+            # if True : add the corresponding squares on in the possibles moves (carreful with the 
+            # symetry btw black and white)
 
         return [_index_to_algebraic(r, c) for r, c in moves]
 
