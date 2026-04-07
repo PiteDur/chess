@@ -14,14 +14,22 @@ import numpy as np
 # helper functions for coordinate conversion
 
 def _algebraic_to_index(pos: str) -> tuple:
-    """Convert a square like "e4" into board indices (row, col).
+    """Convert a square like "e4" or "Pe4" into board indices (row, col).
 
     The board array uses row 0 for the 8th rank and row 7 for the 1st rank.
     Columns go from 0 ('a') to 7 ('h').
     """
+    if len(pos) > 2:
+        pos = pos[1:3]
+
     col = ord(pos[0].lower()) - ord("a")
     row = 8 - int(pos[1])
     return (row, col)
+
+
+def _square_from_notation(pos: str) -> str:
+    """Return the square portion of piece-prefixed input like 'Pe4'."""
+    return pos[1:3] if len(pos) > 2 else pos
 
 
 
@@ -61,40 +69,53 @@ class board :
 
     """
 
-    def __init__(self, color = "white",last_move = None,w_castling=True, b_castling=True):
+    def __init__(self, color = "white", last_move = None):
         self.color = color
-        self.last_move = []
-        self.w_castling = w_castling
-        self.b_castling = b_castling
+        self.last_move = [] if last_move is None else list(last_move)
+        self.turn = "white"
 
-
-    def create_board(self):
+    def create_board(self, positions=None):
         """
-        Returns a 2D array representing the chess board and its pieces in their starting positions.
-        The pieces are represented by their initials (P for pawn, R for rook, N for knight, B for bishop, 
-        Q for queen and K for king) and the color of the pieces is represented by uppercase for white and 
-        lowercase for black.
+        Returns a 2D array representing the chess board and its pieces.
 
         Parameters: 
         -----------
-        - color: str, the color of the pieces that will be at the bottom of the board (white or black). Default: white.
+        - positions: optional tuple (positions_dict, turn_char).
+            positions_dict should match display_positions() output, e.g. {'P': ['e2'], 'k': ['e8']}.
+            turn_char should be 'w' or 'b' to indicate which player moves next.
 
-        Improving idea
-        --------------
-        - generate an empty board
-        - function to generate an intial board
-        - function put pieces on an ampty board  
+        If no positions tuple is provided, the standard starting position is returned.
         """
-        return np.array(
-                [["r", "n", "b", "q", "k", "b", "n", "r"],
-                ["p", "p", "p", "p", "p", "p", "p", "p"],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                [" ", " ", " ", " ", " ", " ", " ", " "],
-                ["P", "P", "P", "P", "P", "P", "P", "P"],
-                ["R", "N", "B", "Q", "K", "B", "N", "R"]])
-    
+        if positions is None:
+            return np.array(
+                    [["r", "n", "b", "q", "k", "b", "n", "r"],
+                    ["p", "p", "p", "p", "p", "p", "p", "p"],
+                    [" ", " ", " ", " ", " ", " ", " ", " "],
+                    [" ", " ", " ", " ", " ", " ", " ", " "],
+                    [" ", " ", " ", " ", " ", " ", " ", " "],
+                    [" ", " ", " ", " ", " ", " ", " ", " "],
+                    ["P", "P", "P", "P", "P", "P", "P", "P"],
+                    ["R", "N", "B", "Q", "K", "B", "N", "R"]])
+
+        if not isinstance(positions, tuple) or len(positions) != 2:
+            raise ValueError("positions must be a tuple: (positions_dict, turn_char).")
+
+        positions_dict, turn_char = positions
+        if not isinstance(positions_dict, dict):
+            raise ValueError("First element of positions must be a dictionary.")
+        if not isinstance(turn_char, str) or turn_char.lower() not in ("w", "b"):
+            raise ValueError("Second element of positions must be 'w' or 'b'.")
+
+        self.turn = "white" if turn_char.lower() == "w" else "black"
+
+        board = np.full((8, 8), " ", dtype=object)
+        for piece, squares in positions_dict.items():
+            if not isinstance(squares, (list, tuple)):
+                raise ValueError("Piece positions must be a list or tuple of square strings.")
+            for square in squares:
+                board[_algebraic_to_index(square)] = piece
+        return board
+
 
     def move_piece(self, actual_board, move):
         """
@@ -103,46 +124,56 @@ class board :
         Parameters:
         -----------
         - actual_board: 2D array representing the chess board and its pieces.
-        - move: tuple of str, the first string is the current position of the piece moved and the second 
-            string is the new position of the piece. The positions are in algebraic notation 
-            (e.g. "Qe2" for white Queen on the square e2).
+        - move: tuple of str, the first string contains piece and source square and the second string contains piece and destination square.
+            Example: ("Pe2", "Pe4"). Both plain squares ("e4") and piece-prefixed squares ("Pe4") are normalized internally.
         
         """
-        # intégrer la vérification de la légalité du coup avant de faire le move => utiliser la classe rules
+        if not isinstance(move, tuple) or len(move) != 2:
+            raise ValueError("Move must be a tuple of (piece_and_source, destination).")
 
-            # intégrer la prise (cas simple), la prise en passant, roque et promotion => altère le positionnement d'autres pieces
-            
-        # vérifier si on est sur un roque
+        # normalize user input like ('Pe2','Pe4') to internal squares 'e2' and 'e4'
+        departure = _square_from_notation(move[0])
+        destination = _square_from_notation(move[1])
 
-        # vérifier si on est sur une prise en passant
+        # validate the move using the rules engine before changing the board
+        rule = rules(move, self.last_move, actual_board)
+        if not rule.check_all():
+            raise ValueError(f"Illegal move: {rule.message}")
 
-
-
-        # updating castling status for both players
-        if move[0][0] == "K":
-            self.w_castling = False
-        elif move[0][0] == "k":
-            self.b_castling = False
-
-
-        # adapting the board to the last move
         new_board = np.copy(actual_board)
-        piece = move[0]
-        new_board[8-int(move[0][2]), ord(move[0][1])-97] = " "
-        new_board[8-int(move[1][2]), ord(move[1][1])-97] = piece
+        origin_idx = _algebraic_to_index(departure)
+        dest_idx = _algebraic_to_index(destination)
+        piece = move[0][0]
 
-        # update the last move: used in the taken in passing rule
-        self.last_move.append(move)    
+        if rule.is_castle_move():
+            new_board[origin_idx] = " "
+            new_board[dest_idx] = piece
+            if destination in ("g1", "g8"):
+                rook_from = _algebraic_to_index("h1" if destination == "g1" else "h8")
+                rook_to = _algebraic_to_index("f1" if destination == "g1" else "f8")
+            else:
+                rook_from = _algebraic_to_index("a1" if destination == "c1" else "a8")
+                rook_to = _algebraic_to_index("d1" if destination == "c1" else "d8")
+            new_board[rook_to] = new_board[rook_from]
+            new_board[rook_from] = " "
+        else:
+            if rule.is_en_passant_move():
+                capture_row = origin_idx[0]
+                capture_col = dest_idx[1]
+                new_board[capture_row][capture_col] = " "
 
+            promotion_piece = piece
+            if piece.lower() == "p" and dest_idx[0] in (0, 7):
+                promotion_piece = "Q" if piece.isupper() else "q"
 
+            new_board[origin_idx] = " "
+            new_board[dest_idx] = promotion_piece
 
+        self.last_move.append(move)
         return new_board
         
 
 
-
-    def last_move(self):
-        return self.last_move
 
     def display_board(self, board):
         """
@@ -183,16 +214,149 @@ class board :
 
     def calculate_scores(self, board):
         """
-        Returns a tuple with the scores of each player (white, black). Each score corresponds to the sum of the values of the pieces that the player has on the board. 
-        Values are given in each piece class
+        Returns cumulative scores and the lost pieces list for each player.
+
+        The function deduces lost pieces from the current board compared to the
+        standard starting material count.
+
+        Returns:
+        --------
+        - tuple: ((white_score, black_score), {"white": lost_white, "black": lost_black})
 
         Parameters:
         -----------
         - board: 2D array representing the chess board and its pieces.
         """
-        scores = (0, 0)
+        white_score = 0
+        black_score = 0
+        counts = {"white": {}, "black": {}}
+
+        for row in board:
+            for square in row:
+                if square == " ":
+                    continue
+                color = "white" if square.isupper() else "black"
+                counts[color][square] = counts[color].get(square, 0) + 1
+                if color == "white":
+                    white_score += {"P": 1, "R": 5, "N": 3, "B": 3, "Q": 9, "K": 0}[square]
+                else:
+                    black_score += {"p": 1, "r": 5, "n": 3, "b": 3, "q": 9, "k": 0}[square]
+
+        starting_counts = {
+            "white": {"P": 8, "R": 2, "N": 2, "B": 2, "Q": 1, "K": 1},
+            "black": {"p": 8, "r": 2, "n": 2, "b": 2, "q": 1, "k": 1},
+        }
+
+        lost = {"white": [], "black": []}
+        for color in ("white", "black"):
+            for piece, start_count in starting_counts[color].items():
+                current_count = counts[color].get(piece, 0)
+                missing = start_count - current_count
+                if missing > 0:
+                    lost[color].extend([piece] * missing)
+
+        return (white_score, black_score), lost
+
+    def check_game_end(self, board):
+        """
+        Check if the game has ended due to checkmate, stalemate, or other draw conditions.
+
+        Returns:
+        --------
+        - tuple: (game_over: bool, message: str, winner: str)
+            - game_over: True if game has ended
+            - message: Description of the end condition (e.g., "Checkmate!", "Stalemate!")
+            - winner: "white", "black", or "draw" (empty string if game not over)
+
+        Parameters:
+        -----------
+        - board: 2D array representing the current board state
+        """
+        current_player = self.turn
+        opponent = "black" if current_player == "white" else "white"
         
-        return scores
+        # Check if current player has any legal moves
+        has_legal_move = False
+        
+        # Scan all pieces of the current player
+        piece_char = "P" if current_player == "white" else "p"
+        for row in range(8):
+            for col in range(8):
+                piece = board[row, col]
+                if piece == " " or (piece.isupper() != (current_player == "white")):
+                    continue
+                
+                # Get possible moves for this piece
+                origin_square = _index_to_algebraic(row, col)
+                try:
+                    piece_obj = self._get_piece_object(piece)
+                    possible_moves = piece_obj.possible_moves(origin_square, board, self.last_move)
+                    
+                    # Test each possible move for legality
+                    for dest_square in possible_moves:
+                        move = (piece + origin_square, dest_square)
+                        try:
+                            rule = rules(move, self.last_move, board)
+                            if rule.check_all():
+                                has_legal_move = True
+                                break
+                        except:
+                            pass
+                    
+                    if has_legal_move:
+                        break
+                except:
+                    pass
+            
+            if has_legal_move:
+                break
+        
+        # If no legal moves found, determine if it's checkmate or stalemate
+        if not has_legal_move:
+            # Create a temporary rule object to check for check
+            dummy_move = (("P" if current_player == "white" else "p") + "a1", "a2")
+            temp_rule = rules(dummy_move, self.last_move, board)
+            
+            if temp_rule._king_in_check(current_player == "white", board=board):
+                # Checkmate
+                winner = opponent
+                message = f"Checkmate! {opponent.capitalize()} wins!"
+                return (True, message, winner)
+            else:
+                # Stalemate
+                message = "Stalemate! Game is a draw."
+                return (True, message, "draw")
+        
+        # Check for draw conditions: threefold repetition or 50-move rule
+        if len(self.last_move) >= 50:
+            move_count = 0
+            for move in reversed(self.last_move):
+                piece = move[0][0]
+                if piece.lower() in ("p", "P") or move[1][0] != move[1][0]:  # pawn move or capture
+                    break
+                move_count += 1
+            
+            if move_count >= 50:
+                message = "50-move rule: Game is a draw."
+                return (True, message, "draw")
+        
+        # Game is still ongoing
+        return (False, "", "")
+
+    def _get_piece_object(self, piece_char):
+        """Helper method to create a piece object from its character."""
+        mapping = {
+            "p": pawn, "P": pawn,
+            "r": rook, "R": rook,
+            "n": knight, "N": knight,
+            "b": bishop, "B": bishop,
+            "q": queen, "Q": queen,
+            "k": king, "K": king,
+        }
+        piece_class = mapping.get(piece_char)
+        if piece_class is None:
+            raise ValueError(f"Unknown piece type: {piece_char}")
+        return piece_class(piece_char)
             
 
 
@@ -230,43 +394,225 @@ class rules :
 
     """
     def __init__(self, move, last_move, board):
-        self.move = move
-        self.sq_departure = move[0][1:3]
-        self.sq_arrival = move[1][1:3]
-        self.last_move = last_move
-        self.board = board
-        self.piece = move[0]
-        self.color = move[0].isupper() # True for white pieces, False for black pieces
+        if not isinstance(move, tuple) or len(move) != 2:
+            raise ValueError("Move must be a tuple: (piece_and_source, destination).")
 
+        self.move = move
+        # normalize any piece-prefixed squares to plain algebraic form
+        self.sq_departure = _square_from_notation(move[0])
+        self.sq_arrival = _square_from_notation(move[1])
+        self.last_move = [] if last_move is None else list(last_move)
+        self.board = board
+        self.piece = move[0][0]
+        self.color = self.piece.isupper() # True for white pieces, False for black pieces
+        self.message = ""
+
+
+    def _piece_factory(self, piece_char=None):
+        # create the right piece object for move validation
+        if piece_char is None:
+            piece_char = self.piece
+        mapping = {
+            "p": pawn,
+            "r": rook,
+            "n": knight,
+            "b": bishop,
+            "q": queen,
+            "k": king,
+        }
+        piece_type = mapping.get(piece_char.lower())
+        if piece_type is None:
+            raise ValueError(f"Unknown piece type: {piece_char}")
+        return piece_type(piece_char)
+
+    def _board_piece(self, square, board=None):
+        board = self.board if board is None else board
+        return board[_algebraic_to_index(square)]
+
+    def _same_color(self, square, board=None):
+        piece = self._board_piece(square, board=board)
+        return piece != " " and piece.isupper() == self.color
+
+    def _square_under_attack(self, square, attacker_color, board=None):
+        board = self.board if board is None else board
+        for r in range(8):
+            for c in range(8):
+                piece = board[r][c]
+                if piece == " " or piece.isupper() != attacker_color:
+                    continue
+                origin = _index_to_algebraic(r, c)
+                if piece.lower() == "p":
+                    attacker = pawn(piece)
+                    attacks = attacker.attack_squares(origin, board)
+                else:
+                    attacker = self._piece_factory(piece)
+                    attacks = attacker.possible_moves(origin, board, self.last_move)
+                if square in attacks:
+                    return True
+        return False
+
+    def _king_position(self, color, board=None):
+        board = self.board if board is None else board
+        target = "K" if color else "k"
+        for r in range(8):
+            for c in range(8):
+                if board[r][c] == target:
+                    return _index_to_algebraic(r, c)
+        return None
+
+    def _turn_color(self):
+        return "white" if len(self.last_move) % 2 == 0 else "black"
+
+    def is_castle_move(self):
+        return self.piece.lower() == "k" and self.sq_departure in ("e1", "e8") and self.sq_arrival in ("g1", "c1", "g8", "c8")
+
+    def is_en_passant_move(self):
+        if self.piece.lower() != "p":
+            return False
+        origin = _algebraic_to_index(self.sq_departure)
+        destination = _algebraic_to_index(self.sq_arrival)
+        if self._board_piece(self.sq_arrival) != " ":
+            return False
+        return origin[0] != destination[0] and origin[1] != destination[1]
+
+    def _possible_moves(self):
+        if self.is_castle_move():
+            return [self.sq_arrival]
+        return self._piece_factory().possible_moves(self.sq_departure, self.board, self.last_move)
+
+    def _king_in_check(self, color, board=None):
+        square = self._king_position(color, board=board)
+        if square is None:
+            return False
+        return self._square_under_attack(square, attacker_color=not color, board=board)
+
+    def _simulate_move(self):
+        new_board = np.copy(self.board)
+        origin = _algebraic_to_index(self.sq_departure)
+        destination = _algebraic_to_index(self.sq_arrival)
+        new_board[origin] = " "
+        if self.is_en_passant_move():
+            new_board[origin[0]][destination[1]] = " "
+        new_board[destination] = self.piece
+        return new_board
+
+    def _piece_moved(self, char, start_squares=None):
+        for move in self.last_move:
+            if move[0][0].lower() != char.lower():
+                continue
+            prior_square = _square_from_notation(move[0])
+            if start_squares is None:
+                return True
+            if prior_square in start_squares:
+                return True
+        return False
+
+    def check_castling(self):
+        if not self.is_castle_move():
+            self.message = "Not a castling move."
+            return False
+        if self._turn_color() != ("white" if self.color else "black"):
+            self.message = "It is not the correct player's turn."
+            return False
+
+        if self._piece_moved("k"):
+            self.message = "King has already moved."
+            return False
+
+        if self.sq_arrival in ("g1", "g8"):
+            rook_square = "h1" if self.sq_arrival == "g1" else "h8"
+            path = ["f1", "g1"] if self.sq_arrival == "g1" else ["f8", "g8"]
+        else:
+            rook_square = "a1" if self.sq_arrival == "c1" else "a8"
+            path = ["d1", "c1", "b1"] if self.sq_arrival == "c1" else ["d8", "c8", "b8"]
+
+        if self._piece_moved("r", start_squares=[rook_square]):
+            self.message = "Rook has already moved."
+            return False
+        if self._board_piece(rook_square).lower() != "r":
+            self.message = "No rook in the correct castling square."
+            return False
+
+        for square in path:
+            if self._board_piece(square) != " ":
+                self.message = "Pieces block the castling path."
+                return False
+
+        if self._king_in_check(self.color):
+            self.message = "King is currently in check."
+            return False
+
+        for square in path:
+            if square == self.sq_departure:
+                continue
+            if self._square_under_attack(square, attacker_color=not self.color):
+                self.message = "Castling path is under attack."
+                return False
+
+        return True
 
     def check_move(self):
-        checked = 0
-        index_sq_departure = _algebraic_to_index(self.sq_departure)
-        index_sq_arrival = _algebraic_to_index(self.sq_arrival)
-        
-        # is the departure square occupied by the piece that is being moved ?
-        if self.board[index_sq_departure] == piece :
-            checked += 1
+        if self._turn_color() != ("white" if self.color else "black"):
+            self.message = "It is not the correct player's turn."
+            return False
 
-     
-                    
+        if self._board_piece(self.sq_departure) != self.piece:
+            self.message = "Departure square does not contain the requested piece."
+            return False
 
-        # is the arrival square in the list of possible moves ?
-        
+        if self._same_color(self.sq_arrival):
+            self.message = "Arrival square is occupied by a same-color piece."
+            return False
 
-        
+        if self.is_castle_move():
+            return self.check_castling()
+
+        possible = self._possible_moves()
+        # compare normalized destination squares against plain algebraic moves
+        if self.sq_arrival not in possible:
+            self.message = "Piece cannot move to the requested square."
+            return False
+
+        if self.is_en_passant_move() and self._board_piece(self.sq_arrival) != " ":
+            self.message = "Invalid en passant destination."
+            return False
+
+        self.message = "Move shape is legal."
+        return True
+
+    def check_checked(self, color=None, board=None):
+        if color is None:
+            color = self.color
+        return self._king_in_check(color, board=board)
+
+    def check_checking(self):
+        new_board = self._simulate_move()
+        future_rule = rules(self.move, self.last_move, new_board)
+        return future_rule.check_checked(not self.color, board=new_board)
+
+    def check_all(self):
+        if not self.check_move():
+            return False
+
+        new_board = self._simulate_move()
+        if self._king_in_check(self.color, board=new_board):
+            self.message = "Move would leave king in check."
+            return False
+
+        self.message = "Legal move."
+        return True
+
+    def check_pat(self):
+        return False
+
+    def check_mate(self):
+        return False
 
 
-        if checked == 3 : 
-            return True
 
 
 
 
-
-
-# pour chaque piece il faut vérifier la couleur et la position pour vérifier la direction du move. Il faut attribuer une valeur
-# pour calculer le score de chaque joueur. Il faut attribuer l'ensemble des cases possibles à partir d'une position. 
 
 class pawn : 
     """
@@ -288,13 +634,7 @@ class pawn :
         self.value = 1
 
     def possible_moves(self, position, board, last_move):
-        """Return all legal target squares in algebraic notation (e.g. "e4").
-
-        The argument ``position`` must be an algebraic coordinate of the pawn's
-        current square. The board is the 8x8 numpy array used throughout the
-        module. The returned list contains only destination squares; move legality
-        (checks, en passant, promotion choice, etc.) is handled elsewhere.
-        """
+        """Return all legal target squares in algebraic notation."""
         moves = []
         row, col = _algebraic_to_index(position)
         direction = -1 if self.color else 1
@@ -319,15 +659,27 @@ class pawn :
                 if target != " " and target.isupper() != self.color:
                     moves.append((nr, nc))
 
+        # en passant
+        if last_move is not None and len(last_move) > 0 and last_move[-1][0][0].lower() == "p":
+            last_origin = _algebraic_to_index(last_move[-1][0][1:])
+            last_destination = _algebraic_to_index(last_move[-1][1])
+            if abs(last_origin[0] - last_destination[0]) == 2:
+                if last_destination[0] == row and abs(last_destination[1] - col) == 1:
+                    capture_dest = (row + direction, last_destination[1])
+                    if 0 <= capture_dest[0] < 8 and board[capture_dest] == " ":
+                        moves.append(capture_dest)
 
-        if last_move is not None and last_move[-1][0][0].lower() == "p" : # if the last move was a pawn move
-            if abs(_algebraic_to_index(last_move[-1][0][1::])[0] - _algebraic_to_index(last_move[-1][1][1::])[0]) == 2 : # if the last move was a double squares move
-                    # if the arrival square of the last move is next to the departure square of the current move
-                if _algebraic_to_index(last_move[-1][1][1::])[0] == row and abs(_algebraic_to_index(last_move[-1][1][1::])[1] - col) == 1 :
-                    moves.append((row, col + dc)) # en passant capture  
-
-        # convert back to algebraic coordinates
         return [_index_to_algebraic(r, c) for r, c in moves]
+
+    def attack_squares(self, position, board):
+        row, col = _algebraic_to_index(position)
+        direction = -1 if self.color else 1
+        moves = []
+        for dc in (-1, 1):
+            nr, nc = row + direction, col + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                moves.append(_index_to_algebraic(nr, nc))
+        return moves
 
 
 class rook :

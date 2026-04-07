@@ -1,0 +1,48 @@
+ChessGameViewer - mode d'emploi
+
+Ce fichier explique rapidement comment utiliser le package ChessGameViewer et le script run_chess_game.
+
+1. Installation
+   - Assurez-vous d'avoir Python 3.10+.
+   - Installez pygame et numpy si ce n'est pas déjà fait :
+     pip install pygame numpy
+
+2. Lancer le jeu avec run_chess_game
+   - Ouvrez un terminal dans le dossier du projet.
+   - Exécutez :
+     python run_chess_game.py
+   - Le jeu démarre avec la position initiale.
+
+3. Exemples d'utilisation
+   - Utiliser le lanceur standard :
+     from chess import board
+     from chess_viewer.chess_game_viewer import ChessGameViewer
+
+     game_board = board()
+     viewer = ChessGameViewer(game_board)
+     viewer.start_game()
+
+   - Utiliser une position personnalisée :
+     from chess import board
+     from chess_viewer.chess_game_viewer import ChessGameViewer
+
+     game_board = board()
+     positions = {
+         'P': ['e4', 'f2'],
+         'p': ['e5', 'f7'],
+         'K': ['e1'],
+         'k': ['e8']
+     }
+     custom_board = game_board.create_board(positions=(positions, 'w'))
+     viewer = ChessGameViewer(game_board)
+     viewer.current_board = custom_board
+     viewer.run()
+
+4. Contrôles
+   - Cliquez sur une pièce pour la sélectionner.
+   - Cliquez sur une case verte pour déplacer la pièce.
+   - Le panneau latéral affiche les scores et les pièces capturées.
+
+5. Résultat de fin de partie
+   - Le viewer affiche un message en superposition lorsque la partie est terminée.
+   - Fermez la fenêtre ou utilisez Ctrl+C pour quitter.
