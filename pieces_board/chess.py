@@ -110,11 +110,8 @@ class board :
         """
         # intégrer la vérification de la légalité du coup avant de faire le move => utiliser la classe rules
 
-            # intégrer la prise en passant
-            # intégrer un choix sur la piece de promotion d'un pion si arrivé en bout de colonne
-            # intégrer la vérification du mate => if mate, game over, return the winner and the final board
-            # intégrer la vérification du pat => if pat, game over, return draw and the final board 
-
+            # intégrer la prise (cas simple), la prise en passant, roque et promotion => altère le positionnement d'autres pieces
+            
         # vérifier si on est sur un roque
 
         # vérifier si on est sur une prise en passant
@@ -210,6 +207,7 @@ class rules :
     - move: tuple of str, the move being made. It can be "P" for pawn, "R" for rook, 
         "N" for knight, "B" for bishop, "Q" for queen and "K" for king. Than we have 
         the square of departure and the square of arrival (e.g. "Qe2" for white Queen on the square e2).
+    - last_move: list of str, all moves made since the beginning of the game. It is used to check for the taken in passing rule.
     - board: 2D array representing the chess board and its pieces.
     
     Methods:
@@ -221,6 +219,10 @@ class rules :
         * no piece can move and the king is not in check => pat => game over => draw
         * repetition of the same position 3 times => pat => game over => draw
         * 50 moves without any capture or pawn move => pat => game over => draw
+    - check castling: is the move a castling move ? in which case the move is legal if the conditions for castling are met :
+        * the king and the rook involved in the castling have not moved yet (see last_move)
+        * there are no pieces between the king and the rook
+        * the king is not in check, and does not pass through or end up in a square that is under attack by an enemy piece
     - check_mate: is the move putting the opponent in checkmate ? (in which case the game is over and the player wins)
     - check_all: check all the previous rules and return True if the move is legal, False otherwise with a message 
         explaining why the move is not legal.
