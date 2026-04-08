@@ -13,13 +13,35 @@ We have a approach in four steps:
 """
 
 
-import sys
-import os
-from chess import *
+from pieces_board.chess import *
 
 
 
+def get_all_legal_moves(board_obj, board):
+    """
+    Get all legal moves for the current player at the current board state.
+    Args:
+        board_obj: an instance of the board class, which contains methods to get piece objects and track last move
+        board: the current board state, represented as a dictionary of piece placements
+    Returns:       
+        A list of legal moves, where each move is a tuple (piece+square: str, destination: str)
 
+    """
+    moves = []
+    positions = board_obj.display_positions(board)
+
+    for piece, squares in positions.items():
+        for square in squares:
+            piece_obj = board_obj._get_piece_object(piece)
+            possible = piece_obj.possible_moves(square, board, board_obj.last_move)
+
+            for dest in possible:
+                move = (piece + square, dest)
+                rule = rules(move, board_obj.last_move, board)
+                if rule.check_all():
+                    moves.append(move)
+
+    return moves
 
 
 
