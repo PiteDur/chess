@@ -18,13 +18,13 @@ A fully-featured chess game with visual GUI, move validation, and game-end detec
    pip install pygame numpy
    ```
 
-3. Ensure piece images are in the `pieces/` folder:
-   - `p.png` (black pawn), `P.png` (white pawn)
-   - `r.png` (black rook), `R.png` (white rook)
-   - `n.png` (black knight), `N.png` (white knight)
-   - `b.png` (black bishop), `B.png` (white bishop)
-   - `q.png` (black queen), `Q.png` (white queen)
-   - `k.png` (black king), `K.png` (white king)
+3. Ensure piece images are in the `pieces_png/` folder with subfolders:
+   - White pieces in `pieces_png/white/`:
+     - `P.png` (white pawn), `R.png` (white rook), `N.png` (white knight)
+     - `B.png` (white bishop), `Q.png` (white queen), `K.png` (white king)
+   - Black pieces in `pieces_png/black/`:
+     - `p.png` (black pawn), `r.png` (black rook), `n.png` (black knight)
+     - `b.png` (black bishop), `q.png` (black queen), `k.png` (black king)
 
 ## Quick Start
 
@@ -140,8 +140,8 @@ pip install pygame
 ```
 
 ### Pieces not displaying
-- Ensure PNG files are in the `pieces/` folder
-- Check file names are exactly: `p.png`, `P.png`, etc.
+- Ensure PNG files are in the `pieces_png/white/` and `pieces_png/black/` folders
+- Check file names are exactly: `P.png`, `p.png`, etc. (uppercase for white, lowercase for black)
 - PNG files should be square (e.g., 80x80 pixels)
 
 ### Move accepted but board doesn't update

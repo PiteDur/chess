@@ -1,0 +1,26 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python -m py_compile chess_viewer/chess_game_viewer\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python test_integration\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd c:\\\\Users\\\\pipsou\\\\Desktop\\\\projets_perso\\\\chess ; python -c \"\nimport sys\nsys\\.path\\.insert\\(0, 'pieces_board'\\)\nfrom chess import board\nfrom chess_viewer\\.chess_game_viewer import ChessGameViewer\nimport pygame\npygame\\.init\\(\\)\nb = board\\(\\)\nviewer = ChessGameViewer\\(b\\)\nimages = viewer\\._load_piece_images\\(\\)\nprint\\('Images loaded successfully'\\)\nfor piece, img in images\\.items\\(\\):\n    if img is not None:\n        print\\(f'\\{piece\\}: loaded'\\)\n    else:\n        print\\(f'\\{piece\\}: not found'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "myvenv\\Scripts\\activate": true,
+        "myvenv\\Scripts\\python.exe": true,
+        "/^cd c:\\\\Users\\\\pipsou\\\\Desktop\\\\projets_perso\\\\chess ; python -c \"\nfrom pathlib import Path\npieces_dir = Path\\('pieces_png'\\)\npiece_names = \\['P', 'R', 'N', 'B', 'K', 'Q', 'p', 'r', 'n', 'b', 'k', 'q'\\]\nfor piece in piece_names:\n    if piece\\.isupper\\(\\):\n        subdir = 'white'\n    else:\n        subdir = 'black'\n    path = pieces_dir / subdir / f'\\{piece\\}\\.png'\n    if path\\.exists\\(\\):\n        print\\(f'\\{piece\\}: \\{path\\} exists'\\)\n    else:\n        print\\(f'\\{piece\\}: \\{path\\} NOT FOUND'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -m py_compile chess_viewer/chess_game_viewer\\.py pieces_board/chess\\.py run_chess_game\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

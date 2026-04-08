@@ -10,8 +10,11 @@ Features:
 - Piece images displayed on top of squares
 - Side panel showing scores and captured pieces
 - Coordinate labels (a-h, 1-8) on board edges
+- Move history display with move notation
+- Pawn promotion dialog
+- Castling support
+- Board rotation based on player color
 
-https://www.google.com/search?q=chess+pieces+no+background&client=firefox-b-d&hs=F2zU&sca_esv=1a51245140343e35&udm=2&biw=1920&bih=955&sxsrf=ANbL-n5n5G-KatetLpFulZyXl_b5A7yUKA%3A1775590228382&ei=VFvVaenuFtqvkdUPhaOiuAE&ved=0ahUKEwjp6NCGvdyTAxXaV6QEHYWRCBcQ4dUDCBI&uact=5&oq=chess+pieces+no+background&gs_lp=Egtnd3Mtd2l6LWltZyIaY2hlc3MgcGllY2VzIG5vIGJhY2tncm91bmQyCBAAGBMYBxgeMgcQABiABBgTSNQTUN0CWL0ScAF4AJABAJgBSaAB-QKqAQE3uAEDyAEA-AEBmAIIoAKWA8ICCBAAGBMYCBgewgIGEAAYBxgewgIIEAAYBRgHGB7CAggQABgTGAUYHpgDAIgGAZIHATigB-YesgcBN7gHjgPCBwUwLjUuM8gHFIAIAA&sclient=gws-wiz-img#sv=CAMSVhoyKhBlLXhIeDFHaVBsdXBrcEdNMg54SHgxR2lQbHVwa3BHTToOSjRiU0lvU0I3ZVNkd00gBCocCgZtb3NhaWMSEGUteEh4MUdpUGx1cGtwR00YADABGAcgz_ihvQ1KCBABGAEgASgB
 """
 
 import pygame
@@ -31,10 +34,12 @@ class ChessGameViewer:
     - square_size: pixel size of each board square (default 80)
     - light_color: RGB tuple for light squares (default light gray)
     - dark_color: RGB tuple for dark squares (default white)
+    - player_color: str, 'white' or 'black' (default 'white')
     """
     
     def __init__(self, board_obj, width=1200, height=800, square_size=80,
-                 light_color=(220, 220, 220), dark_color=(255, 255, 255)):
+                 light_color=(220, 220, 220), dark_color=(255, 255, 255),
+                 player_color='white'):
         """Initialize the chess game viewer.
 
         Args:
@@ -44,6 +49,7 @@ class ChessGameViewer:
             square_size (int): Size of each board square in pixels.
             light_color (tuple): RGB color for light squares.
             dark_color (tuple): RGB color for dark squares.
+            player_color (str): 'white' or 'black' for board orientation.
 
         Attributes:
             self.current_board (ndarray): Current board state.
@@ -51,6 +57,7 @@ class ChessGameViewer:
             self.possible_moves (list): Legal destination squares for selected piece.
             self.game_over (bool): Whether the game is finished.
             self.game_message (str): Message displayed when the game ends.
+            self.move_history (list): List of moves in algebraic notation.
         """
         pygame.init()
         
@@ -60,6 +67,8 @@ class ChessGameViewer:
         self.square_size = square_size
         self.light_color = light_color
         self.dark_color = dark_color
+        self.player_color = player_color
+        self.flip_board = (player_color == 'black')
         
         # Board display position
         self.board_x = 50
@@ -78,6 +87,9 @@ class ChessGameViewer:
         self.possible_moves = []
         self.game_over = False
         self.game_message = ""
+        self.move_history = []
+        self.promotion_choice = None
+        self.waiting_for_promotion = False
         
         # Initialize display
         self.screen = pygame.display.set_mode((width, height))
@@ -93,18 +105,22 @@ class ChessGameViewer:
         self.font_tiny = pygame.font.Font(None, 18)
     
     def _load_piece_images(self):
-        """Load piece images from the pieces folder.
+        """Load piece images from the pieces_png/white and pieces_png/black folders.
 
         Returns:
             dict: Mapping piece characters like 'P' or 'k' to pygame Surface objects.
         """
         piece_images = {}
-        pieces_dir = Path(__file__).parent.parent / "pieces"
+        pieces_dir = Path(__file__).parent.parent / "pieces_png"
         
         piece_names = ["P", "R", "N", "B", "K", "Q", "p", "r", "n", "b", "k", "q"]
         
         for piece in piece_names:
-            path = pieces_dir / f"{piece}.png"
+            if piece.isupper():
+                subdir = "white"
+            else:
+                subdir = "black"
+            path = pieces_dir / subdir / f"{piece}.png"
             try:
                 img = pygame.image.load(str(path))
                 # Scale image to fit square with some padding
@@ -150,14 +166,11 @@ class ChessGameViewer:
             - self.possible_moves for the selected piece
             - executes a move when the second click is valid
         """
-        # Check if click is within board bounds
-        if not (self.board_x <= pos[0] < self.board_x + self.board_size and
-                self.board_y <= pos[1] < self.board_y + self.board_size):
+        # Convert pixel position to board indices
+        row, col = self._pixel_to_board_index(pos)
+        if row is None:
             return
         
-        # Convert pixel position to board square
-        col = (pos[0] - self.board_x) // self.square_size
-        row = (pos[1] - self.board_y) // self.square_size
         square = self._index_to_square(row, col)
         
         if self.selected_square is None:
@@ -189,6 +202,31 @@ class ChessGameViewer:
                     self.selected_square = None
                     self.possible_moves = []
     
+    def _pixel_to_board_index(self, pos):
+        """Convert pixel position to board indices, accounting for board flip.
+        
+        Args:
+            pos (tuple): Mouse position in pixels (x, y).
+            
+        Returns:
+            tuple: (row, col) in board indices, or (None, None) if out of bounds
+        """
+        # Check if click is within board bounds
+        if not (self.board_x <= pos[0] < self.board_x + self.board_size and
+                self.board_y <= pos[1] < self.board_y + self.board_size):
+            return None, None
+        
+        # Convert pixel position to board square
+        col = (pos[0] - self.board_x) // self.square_size
+        row = (pos[1] - self.board_y) // self.square_size
+        
+        # Flip if playing as black
+        if self.flip_board:
+            row = 7 - row
+            col = 7 - col
+        
+        return row, col
+
     def _index_to_square(self, row, col):
         """Convert board indices to algebraic notation."""
         return chr(ord('a') + col) + str(8 - row)
@@ -224,6 +262,88 @@ class ChessGameViewer:
             self.possible_moves = piece_obj.possible_moves(square, self.current_board, 
                                                            self.board_obj.last_move if hasattr(self.board_obj, 'last_move') else [])
 
+    def _is_pawn_promotion(self, piece, to_square):
+        """Check if a move is a pawn promotion.
+        
+        Args:
+            piece (str): The piece character
+            to_square (str): Destination square in algebraic notation
+            
+        Returns:
+            bool: True if this is a pawn promotion move
+        """
+        return piece.lower() == 'p' and (to_square[1] == '8' or to_square[1] == '1')
+    
+    def _show_promotion_dialog(self, piece_color):
+        """Show a dialog for pawn promotion selection.
+        
+        Args:
+            piece_color (str): 'white' or 'black'
+            
+        Returns:
+            str: The chosen promotion piece ('Q', 'R', 'N', 'B' or lowercase equivalents)
+        """
+        # Draw semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(200)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw title
+        title_text = self.font_large.render("Choose Promotion Piece:", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(self.width // 2, self.height // 4))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw options with rectangles
+        options = [
+            ('Q', 'Queen'),
+            ('R', 'Rook'),
+            ('B', 'Bishop'),
+            ('N', 'Knight')
+        ]
+        
+        button_width = 100
+        button_height = 50
+        button_x_start = self.width // 2 - (len(options) * button_width + 30) // 2
+        button_y = self.height // 2
+        
+        option_rects = {}
+        for i, (piece, name) in enumerate(options):
+            x = button_x_start + i * (button_width + 10)
+            rect = pygame.Rect(x, button_y, button_width, button_height)
+            
+            # Draw button background
+            pygame.draw.rect(self.screen, (0, 100, 255), rect)
+            pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+            
+            # Draw text
+            text = self.font_small.render(name, True, (255, 255, 255))
+            text_rect = text.get_rect(center=rect.center)
+            self.screen.blit(text, text_rect)
+            
+            option_rects[piece] = rect
+        
+        pygame.display.flip()
+        
+        # Wait for user selection
+        selected = False
+        chosen_piece = None
+        while not selected:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = event.pos
+                    for piece, rect in option_rects.items():
+                        if rect.collidepoint(mouse_pos):
+                            # Adjust case based on piece color
+                            chosen_piece = piece if piece_color == 'white' else piece.lower()
+                            selected = True
+                            break
+        
+        return chosen_piece
+
     
     def _execute_move(self, from_square, to_square):
         """Execute a move and update the board.
@@ -235,13 +355,23 @@ class ChessGameViewer:
         Side effects:
             - updates self.current_board with the new position
             - toggles self.board_obj.turn between 'white' and 'black'
+            - updates self.move_history with the move in algebraic notation
             - updates self.game_over and self.game_message if the game ends
         """
         piece = self.current_board[8 - int(from_square[1])][ord(from_square[0]) - ord('a')]
         move = (piece + from_square, to_square)
         
+        # Check if this is a pawn promotion
+        promotion_piece = None
+        if self._is_pawn_promotion(piece, to_square):
+            promotion_piece = self._show_promotion_dialog(self.board_obj.turn)
+        
         try:
-            self.current_board = self.board_obj.move_piece(self.current_board, move)
+            self.current_board = self.board_obj.move_piece(self.current_board, move, promotion_piece=promotion_piece)
+            
+            # Add to move history
+            self._add_to_move_history(piece, from_square, to_square, promotion_piece)
+            
             # Switch turn
             self.board_obj.turn = "black" if self.board_obj.turn == "white" else "white"
             
@@ -256,6 +386,33 @@ class ChessGameViewer:
             self.selected_square = None
             self.possible_moves = []
     
+    def _add_to_move_history(self, piece, from_square, to_square, promotion_piece=None):
+        """Add a move to the move history in algebraic notation.
+        
+        Args:
+            piece (str): The piece character
+            from_square (str): Source square
+            to_square (str): Destination square
+            promotion_piece (str): The promotion piece if applicable
+        """
+        # Create algebraic notation
+        piece_symbol = {'P': '', 'p': '', 'N': 'N', 'n': 'N', 'B': 'B', 'b': 'B',
+                       'R': 'R', 'r': 'R', 'Q': 'Q', 'q': 'Q', 'K': 'K', 'k': 'K'}[piece]
+        
+        notation = f"{piece_symbol}{to_square}"
+        if promotion_piece:
+            promotion_notation = {'q': 'Q', 'r': 'R', 'b': 'B', 'n': 'N',
+                                 'Q': 'Q', 'R': 'R', 'B': 'B', 'N': 'N'}.get(promotion_piece, promotion_piece)
+            notation += f"={promotion_notation}"
+        
+        # Add castling notation
+        if piece.lower() == 'k' and abs(ord(from_square[0]) - ord(to_square[0])) == 2:
+            if to_square == 'g1' or to_square == 'g8':
+                notation = 'O-O'
+            elif to_square == 'c1' or to_square == 'c8':
+                notation = 'O-O-O'
+        
+        self.move_history.append(notation)
     def _draw(self):
         """Render the game state to the screen.
 
@@ -279,19 +436,27 @@ class ChessGameViewer:
         """Draw the chess board with pieces and coordinates.
 
         This method renders:
-            - the 8x8 board grid
-            - algebraic labels on the left and bottom edges
+            - the 8x8 board grid (flipped if player is black)
+            - algebraic labels on the edges
             - piece sprites on occupied squares
             - the selected square highlight and legal move markers
         """
         # Draw squares and coordinates
-        for row in range(8):
-            for col in range(8):
-                x = self.board_x + col * self.square_size
-                y = self.board_y + row * self.square_size
+        for board_row in range(8):
+            for board_col in range(8):
+                # Apply flip transformation for display
+                if self.flip_board:
+                    display_row = 7 - board_row
+                    display_col = 7 - board_col
+                else:
+                    display_row = board_row
+                    display_col = board_col
+                
+                x = self.board_x + display_col * self.square_size
+                y = self.board_y + display_row * self.square_size
                 
                 # Alternate colors for checkered pattern
-                color = self.light_color if (row + col) % 2 == 0 else self.dark_color
+                color = self.light_color if (board_row + board_col) % 2 == 0 else self.dark_color
                 pygame.draw.rect(self.screen, color, (x, y, self.square_size, self.square_size))
                 
                 # Draw border
@@ -299,23 +464,40 @@ class ChessGameViewer:
         
         # Draw coordinate labels (left side: ranks)
         for rank in range(8):
-            y = self.board_y + rank * self.square_size + self.square_size // 2
-            text = self.font_small.render(str(8 - rank), True, (0, 0, 0))
+            if self.flip_board:
+                y = self.board_y + (7 - rank) * self.square_size + self.square_size // 2
+                label = str(rank + 1)
+            else:
+                y = self.board_y + rank * self.square_size + self.square_size // 2
+                label = str(8 - rank)
+            text = self.font_small.render(label, True, (0, 0, 0))
             self.screen.blit(text, (self.board_x - 25, y - 10))
         
         # Draw coordinate labels (bottom: files)
         for file in range(8):
-            x = self.board_x + file * self.square_size + self.square_size // 2
-            text = self.font_small.render(chr(ord('a') + file), True, (0, 0, 0))
+            if self.flip_board:
+                x = self.board_x + (7 - file) * self.square_size + self.square_size // 2
+                label = chr(ord('h') - file)
+            else:
+                x = self.board_x + file * self.square_size + self.square_size // 2
+                label = chr(ord('a') + file)
+            text = self.font_small.render(label, True, (0, 0, 0))
             self.screen.blit(text, (x - 8, self.board_y + self.board_size + 5))
         
         # Draw pieces
-        for row in range(8):
-            for col in range(8):
-                piece = self.current_board[row][col]
+        for board_row in range(8):
+            for board_col in range(8):
+                piece = self.current_board[board_row][board_col]
                 if piece != " ":
-                    x = self.board_x + col * self.square_size + 5
-                    y = self.board_y + row * self.square_size + 5
+                    if self.flip_board:
+                        display_row = 7 - board_row
+                        display_col = 7 - board_col
+                    else:
+                        display_row = board_row
+                        display_col = board_col
+                    
+                    x = self.board_x + display_col * self.square_size + 5
+                    y = self.board_y + display_row * self.square_size + 5
                     if self.piece_images[piece]:
                         self.screen.blit(self.piece_images[piece], (x, y))
         
@@ -323,24 +505,37 @@ class ChessGameViewer:
         if self.selected_square:
             col = ord(self.selected_square[0]) - ord('a')
             row = 8 - int(self.selected_square[1])
-            x = self.board_x + col * self.square_size
-            y = self.board_y + row * self.square_size
+            if self.flip_board:
+                display_row = 7 - row
+                display_col = 7 - col
+            else:
+                display_row = row
+                display_col = col
+            x = self.board_x + display_col * self.square_size
+            y = self.board_y + display_row * self.square_size
             pygame.draw.rect(self.screen, (255, 200, 0), (x, y, self.square_size, self.square_size), 3)
         
         # Draw possible moves
         for move_square in self.possible_moves:
             col = ord(move_square[0]) - ord('a')
             row = 8 - int(move_square[1])
-            x = self.board_x + col * self.square_size + self.square_size // 2
-            y = self.board_y + row * self.square_size + self.square_size // 2
+            if self.flip_board:
+                display_row = 7 - row
+                display_col = 7 - col
+            else:
+                display_row = row
+                display_col = col
+            x = self.board_x + display_col * self.square_size + self.square_size // 2
+            y = self.board_y + display_row * self.square_size + self.square_size // 2
             pygame.draw.circle(self.screen, (0, 255, 0), (x, y), 5)
     
     def _draw_side_panel(self):
-        """Draw the side panel with scores, captured pieces, and current turn.
+        """Draw the side panel with scores, captured pieces, move history, and current turn.
 
         This method renders:
             - score values for white and black
             - lists of captured pieces for each side
+            - move history in algebraic notation
             - current player's turn
         """
         # Background
@@ -383,15 +578,51 @@ class ChessGameViewer:
         black_lost_text = self.font_small.render(f"Black lost: {len(lost_pieces['black'])}", True, (0, 0, 0))
         self.screen.blit(black_lost_text, (self.panel_x + 10, y_offset))
         
-        y_offset += 25
-        black_pieces_str = " ".join(lost_pieces['black'][:10])  # Show first 10
-        black_pieces_text = self.font_tiny.render(black_pieces_str, True, (80, 80, 80))
-        self.screen.blit(black_pieces_text, (self.panel_x + 10, y_offset))
+        # Draw move history
+        y_offset += 50
+        moves_title = self.font_large.render("Moves", True, (0, 0, 0))
+        self.screen.blit(moves_title, (self.panel_x + 10, y_offset))
+        
+        y_offset += 35
+        # Format moves with move numbers (1. e4 e5 2. Nf3, etc.)
+        move_text = self._format_move_history()
+        
+        # Draw moves in a scrollable area
+        lines = move_text.split('\n')
+        for line in lines[:5]:  # Show first 5 lines
+            move_line_text = self.font_tiny.render(line, True, (50, 50, 50))
+            self.screen.blit(move_line_text, (self.panel_x + 10, y_offset))
+            y_offset += 20
         
         # Draw current turn
-        y_offset += 50
+        y_offset += 30
         turn_text = self.font_small.render(f"Turn: {self.board_obj.turn}", True, (0, 0, 0))
         self.screen.blit(turn_text, (self.panel_x + 10, y_offset))
+    
+    def _format_move_history(self):
+        """Format move history into standard notation with move numbers.
+        
+        Example output: "1. Pe4 pe5\n2. Nf3 nc6"
+        
+        Returns:
+            str: Formatted move history
+        """
+        if not self.move_history:
+            return "(no moves yet)"
+        
+        # Pair up white and black moves
+        moves_text = ""
+        for i in range(0, len(self.move_history), 2):
+            move_number = (i // 2) + 1
+            white_move = self.move_history[i] if i < len(self.move_history) else ""
+            black_move = self.move_history[i + 1] if i + 1 < len(self.move_history) else ""
+            
+            moves_text += f"{move_number}. {white_move}"
+            if black_move:
+                moves_text += f" {black_move}"
+            moves_text += "\n"
+        
+        return moves_text.strip()
     
     def _draw_game_over_message(self):
         """Draw game over message overlay.

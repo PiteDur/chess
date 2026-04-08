@@ -117,7 +117,7 @@ class board :
         return board
 
 
-    def move_piece(self, actual_board, move):
+    def move_piece(self, actual_board, move, promotion_piece=None):
         """
         Returns a new board with the piece moved from its current position to the new position.
 
@@ -126,6 +126,8 @@ class board :
         - actual_board: 2D array representing the chess board and its pieces.
         - move: tuple of str, the first string contains piece and source square and the second string contains piece and destination square.
             Example: ("Pe2", "Pe4"). Both plain squares ("e4") and piece-prefixed squares ("Pe4") are normalized internally.
+        - promotion_piece: str, optional. The piece to promote a pawn to ('Q', 'R', 'N', 'B' for white, lowercase for black).
+                         If None and a pawn reaches the last rank, defaults to 'Q' or 'q'.
         
         """
         if not isinstance(move, tuple) or len(move) != 2:
@@ -162,16 +164,19 @@ class board :
                 capture_col = dest_idx[1]
                 new_board[capture_row][capture_col] = " "
 
-            promotion_piece = piece
+            final_piece = piece
             if piece.lower() == "p" and dest_idx[0] in (0, 7):
-                promotion_piece = "Q" if piece.isupper() else "q"
+                # Pawn promotion
+                if promotion_piece is None:
+                    final_piece = "Q" if piece.isupper() else "q"
+                else:
+                    final_piece = promotion_piece
 
             new_board[origin_idx] = " "
-            new_board[dest_idx] = promotion_piece
+            new_board[dest_idx] = final_piece
 
         self.last_move.append(move)
         return new_board
-        
 
 
 
@@ -874,7 +879,7 @@ class king :
         self.value = 0
 
     def possible_moves(self, position, board, last_move):
-        """King moves one square in any direction (castling not implemented)."""
+        """King moves one square in any direction. Also includes castling moves."""
         moves = []
         row, col = _algebraic_to_index(position)
         for dr in (-1, 0, 1):
@@ -887,12 +892,35 @@ class king :
                     if target == " " or target.isupper() != self.color:
                         moves.append((nr, nc))
 
-        # castling move :
-            # check for castling status according to the board object (self attributes)
-            # if True => check for pieces btw the k and the rook => if not, True
-            # check if the king or squares of the castling are in check => if not, True
-            # if True : add the corresponding squares on in the possibles moves (carreful with the 
-            # symetry btw black and white)
+        # Castling moves
+        if position == "e1" and self.color:  # White king at e1
+            # Check kingside castling (h1)
+            if board[7][7] == "R" and all(board[7][i] == " " for i in range(5, 7)):
+                # Check if king and rook haven't moved (only possible if last_move is empty or they weren't the pieces moved)
+                king_moved = any(move[0][0].lower() == 'k' and _square_from_notation(move[0]) == "e1" for move in last_move)
+                rook_moved = any(move[0][0].lower() == 'r' and _square_from_notation(move[0]) == "h1" for move in last_move)
+                if not king_moved and not rook_moved:
+                    moves.append((7, 6))  # g1
+            # Check queenside castling (a1)
+            if board[7][0] == "R" and all(board[7][i] == " " for i in range(1, 4)):
+                king_moved = any(move[0][0].lower() == 'k' and _square_from_notation(move[0]) == "e1" for move in last_move)
+                rook_moved = any(move[0][0].lower() == 'r' and _square_from_notation(move[0]) == "a1" for move in last_move)
+                if not king_moved and not rook_moved:
+                    moves.append((7, 2))  # c1
+                    
+        elif position == "e8" and not self.color:  # Black king at e8
+            # Check kingside castling (h8)
+            if board[0][7] == "r" and all(board[0][i] == " " for i in range(5, 7)):
+                king_moved = any(move[0][0].lower() == 'k' and _square_from_notation(move[0]) == "e8" for move in last_move)
+                rook_moved = any(move[0][0].lower() == 'r' and _square_from_notation(move[0]) == "h8" for move in last_move)
+                if not king_moved and not rook_moved:
+                    moves.append((0, 6))  # g8
+            # Check queenside castling (a8)
+            if board[0][0] == "r" and all(board[0][i] == " " for i in range(1, 4)):
+                king_moved = any(move[0][0].lower() == 'k' and _square_from_notation(move[0]) == "e8" for move in last_move)
+                rook_moved = any(move[0][0].lower() == 'r' and _square_from_notation(move[0]) == "a8" for move in last_move)
+                if not king_moved and not rook_moved:
+                    moves.append((0, 2))  # c8
 
         return [_index_to_algebraic(r, c) for r, c in moves]
 

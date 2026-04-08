@@ -7,12 +7,33 @@ This script demonstrates how to start a new chess game with the GUI.
 
 import sys
 from pathlib import Path
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 
 # Add pieces_board to path
 sys.path.insert(0, str(Path(__file__).parent / "pieces_board"))
 
 from chess import board
 from chess_viewer.chess_game_viewer import ChessGameViewer
+
+
+def show_color_selection_dialog():
+    """Show a dialog to select player color.
+    
+    Returns:
+        str: 'white' or 'black' based on user selection
+    """
+    root = tk.Tk()
+    root.withdraw()  # Hide the window
+    
+    root.geometry("300x150")
+    result = messagebox.askquestion(
+        "Choose Your Color",
+        "Do you want to play as White?\n\n(Yes = White at bottom, No = Black at bottom)"
+    )
+    
+    root.destroy()
+    return 'white' if result == 'yes' else 'black'
 
 
 def main():
@@ -22,6 +43,7 @@ def main():
         None
 
     This function:
+        - shows a color selection dialog
         - creates a board instance
         - initializes a ChessGameViewer
         - starts the pygame main loop
@@ -30,9 +52,13 @@ def main():
     print("Chess Game Viewer")
     print("="*50)
     
+    # Show color selection dialog
+    print("\nAsking player to choose a color...")
+    player_color = show_color_selection_dialog()
+    
     # Create a new board (starting position)
-    print("\nInitializing game...")
-    game_board = board()
+    print(f"\nInitializing game... Player color: {player_color}")
+    game_board = board(color=player_color)
     
     # Create the viewer with default colors
     print("Starting GUI...")
@@ -42,7 +68,8 @@ def main():
         height=800,
         square_size=80,
         light_color=(220, 220, 220),  # Light gray
-        dark_color=(255, 255, 255)     # White
+        dark_color=(255, 255, 255),    # White
+        player_color=player_color
     )
     
     # Start the game
