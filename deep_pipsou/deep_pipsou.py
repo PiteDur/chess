@@ -49,6 +49,13 @@ def get_all_legal_moves(board_obj, board):
 
 
 
+"""
+COST FUNCTION
+
+The cost function must evaluate the position of the board and give a score. The higher the score, the better the position for the player.
+The score is based on the material balance
+
+"""
 
 
 
