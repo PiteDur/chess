@@ -16,7 +16,6 @@ We have a approach in four steps:
 from pieces_board.chess import *
 
 
-
 def get_all_legal_moves(board_obj, board):
     """
     Get all legal moves for the current player at the current board state.
@@ -44,18 +43,17 @@ def get_all_legal_moves(board_obj, board):
     return moves
 
 
-
-
-
-
+"""
+The cost function must respects some basis principles:
+1- It must be fast to compute, since we will evaluate many positions
+2- It must evaluate the arrival square in regards to the fact that the piece is protected or not, and the value of the piece on it
 
 """
-COST FUNCTION
 
-The cost function must evaluate the position of the board and give a score. The higher the score, the better the position for the player.
-The score is based on the material balance
 
-"""
+
+
+
 
 
 
